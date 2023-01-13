@@ -53,7 +53,8 @@ func (s ShellyDW2) SubscribeOpenState(openHandler func(), closeHandler func()) {
 		}
 	}
 
-	if token := s.mqttClient.Subscribe(topic, byte(qos), openStateCallback); token.Wait() && token.Error() != nil {
+	if token := s.mqttClient.Subscribe(topic, byte(qos), openStateCallback); token.Wait() &&
+		token.Error() != nil {
 		log.Println(token.Error())
 		os.Exit(1)
 	}
