@@ -55,7 +55,7 @@ type ShellyTRVStatus struct {
 	TargetT           ShellyTRVTargetT `json:"target_t"`
 	Tmp               ShellyTRVTmp     `json:"tmp"`
 	TemperatureOffset float32          `json:"temperature_offset"`
-	Bat               int              `json:"bat"`
+	Bat               float32          `json:"bat"`
 }
 
 func NewShellyTRV(deviceId string, mqttOpts *MQTT.ClientOptions) ShellyTRV {
