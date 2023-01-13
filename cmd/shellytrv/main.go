@@ -33,8 +33,9 @@ func main() {
 	trv.Connect()
 	defer trv.Close()
 
-	trv.SubscribeInfo(infoCallback)
-	trv.SubscribeStatus(statusCallback)
+	trv.SubscribeAll()
+	// trv.SubscribeInfo(infoCallback)
+	// trv.SubscribeStatus(statusCallback)
 
 	for {
 		time.Sleep(time.Second * 10)

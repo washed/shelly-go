@@ -43,13 +43,67 @@ type ShellyTRVTmp struct {
 	IsValid bool    `json:"is_valid"`
 }
 
+type ShellyTRVBat struct {
+	Value   int     `json:"value"`
+	Voltage float32 `json:"voltage"`
+}
+
 type ShellyTRVInfo struct {
 	Calibrated  bool                  `json:"calibrated"`
 	Charger     bool                  `json:"charger"`
 	PsMode      int                   `json:"ps_mode"`
 	DbgFlags    int                   `json:"dbg_flags"`
 	Thermostats []ShellyTRVThermostat `json:"thermostats"`
+	Bat         ShellyTRVBat          `json:"bat"`
 }
+
+/*
+Implement the rest the remaining info fields if necessary?
+{
+    "wifi_sta": {
+        "connected": true,
+        "ssid": "wpd.wlan-2.4GHz",
+        "ip": "192.168.178.123",
+        "rssi": -33
+    },
+    "cloud": {
+        "enabled": false,
+        "connected": false
+    },
+    "mqtt": {
+        "connected": true
+    },
+    "time": "17:42",
+    "unixtime": 1673628121,
+    "serial": 0,
+    "has_update": false,
+    "mac": "60A423DAE8DE",
+    "cfg_changed_cnt": 0,
+    "actions_stats": {
+        "skipped": 0
+    },
+    "bat": {
+        "value": 99,
+        "voltage": 3.989
+    },
+    "update": {
+        "status": "unknown",
+        "has_update": false,
+        "new_version": "20220811-152343/v2.1.8@5afc928c",
+        "old_version": "20220811-152343/v2.1.8@5afc928c",
+        "beta_version": null
+    },
+    "ram_total": 97280,
+    "ram_free": 22488,
+    "fs_size": 65536,
+    "fs_free": 59416,
+    "uptime": 318520,
+    "fw_info": {
+        "device": "shellytrv-60A423DAE8DE",
+        "fw": "20220811-152343/v2.1.8@5afc928c"
+    },
+}
+*/
 
 type ShellyTRVStatus struct {
 	TargetT           ShellyTRVTargetT `json:"target_t"`
@@ -161,6 +215,27 @@ func (s ShellyTRV) SubscribeInfo(infoCallback ShellyTRVInfoCallback) {
 			log.Printf("Error unmarshaling message '%+v'! Error: '%+v'.\n", message, err)
 		}
 		infoCallback(info)
+	}
+
+	if token := s.mqttClient.Subscribe(topic, byte(qos), callback); token.Wait() &&
+		token.Error() != nil {
+		log.Println(token.Error())
+		os.Exit(1)
+	}
+
+	log.Printf("%s: subscribed to %s\n", s.deviceName(), topic)
+}
+
+func (s ShellyTRV) SubscribeAll() {
+	topic := s.baseTopic() + "/#"
+
+	callback := func(client MQTT.Client, message MQTT.Message) {
+		log.Printf(
+			"%s: received topic: %+v message: %+v\n",
+			s.deviceName(),
+			string(message.Topic()),
+			string(message.Payload()),
+		)
 	}
 
 	if token := s.mqttClient.Subscribe(topic, byte(qos), callback); token.Wait() &&
