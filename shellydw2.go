@@ -29,15 +29,15 @@ func (s ShellyDW2) Connect() {
 
 func (s ShellyDW2) Close() {
 	s.mqttClient.Disconnect(disconnectQiesceTimeMs)
-	log.Printf("%s: disconnected\n", s.deviceName())
+	log.Printf("%s: disconnected\n", s.DeviceName())
 }
 
-func (s ShellyDW2) deviceName() string {
+func (s ShellyDW2) DeviceName() string {
 	return fmt.Sprintf("shellydw2-%s", s.DeviceId)
 }
 
 func (s ShellyDW2) baseTopic() string {
-	return fmt.Sprintf("shellies/%s", s.deviceName())
+	return fmt.Sprintf("shellies/%s", s.DeviceName())
 }
 
 func (s ShellyDW2) SubscribeOpenState(openHandler func(), closeHandler func()) {
@@ -45,10 +45,10 @@ func (s ShellyDW2) SubscribeOpenState(openHandler func(), closeHandler func()) {
 
 	openStateCallback := func(client MQTT.Client, message MQTT.Message) {
 		if string(message.Payload()) == "open" {
-			log.Printf("%s: window opened\n", s.deviceName())
+			log.Printf("%s: window opened\n", s.DeviceName())
 			openHandler()
 		} else if string(message.Payload()) == "close" {
-			log.Printf("%s: window closed\n", s.deviceName())
+			log.Printf("%s: window closed\n", s.DeviceName())
 			closeHandler()
 		}
 	}
@@ -59,5 +59,5 @@ func (s ShellyDW2) SubscribeOpenState(openHandler func(), closeHandler func()) {
 		os.Exit(1)
 	}
 
-	log.Printf("%s: subscribed to %s\n", s.deviceName(), topic)
+	log.Printf("%s: subscribed to %s\n", s.DeviceName(), topic)
 }

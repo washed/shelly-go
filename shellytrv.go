@@ -127,15 +127,15 @@ func (s ShellyTRV) Connect() {
 
 func (s ShellyTRV) Close() {
 	s.mqttClient.Disconnect(disconnectQiesceTimeMs)
-	log.Printf("%s: disconnected\n", s.deviceName())
+	log.Printf("%s: disconnected\n", s.DeviceName())
 }
 
-func (s ShellyTRV) deviceName() string {
+func (s ShellyTRV) DeviceName() string {
 	return fmt.Sprintf("shellytrv-%s", s.DeviceId)
 }
 
 func (s ShellyTRV) baseTopic() string {
-	return fmt.Sprintf("shellies/%s", s.deviceName())
+	return fmt.Sprintf("shellies/%s", s.DeviceName())
 }
 
 func (s ShellyTRV) baseCommandTopic() string {
@@ -143,35 +143,35 @@ func (s ShellyTRV) baseCommandTopic() string {
 }
 
 func (s ShellyTRV) SetValve(valvePos float32) {
-	log.Printf("%s: setting valve_pos to %f\n", s.deviceName(), valvePos)
+	log.Printf("%s: setting valve_pos to %f\n", s.DeviceName(), valvePos)
 	topic := s.baseCommandTopic() + "/valve_pos"
 	token := s.mqttClient.Publish(topic, byte(qos), false, fmt.Sprint(valvePos))
 	token.Wait()
 }
 
 func (s ShellyTRV) SetScheduleEnable(enable bool) {
-	log.Printf("%s: setting schedule enable to %d\n", s.deviceName(), Btoi(enable))
+	log.Printf("%s: setting schedule enable to %d\n", s.DeviceName(), Btoi(enable))
 	topic := s.baseCommandTopic() + "/schedule"
 	token := s.mqttClient.Publish(topic, byte(qos), false, fmt.Sprint(Btoi(enable)))
 	token.Wait()
 }
 
 func (s ShellyTRV) SetTargetTemperature(temperatureDegreeC float32) {
-	log.Printf("%s: setting target temperature to %f °C\n", s.deviceName(), temperatureDegreeC)
+	log.Printf("%s: setting target temperature to %f °C\n", s.DeviceName(), temperatureDegreeC)
 	topic := s.baseCommandTopic() + "/target_t"
 	token := s.mqttClient.Publish(topic, byte(qos), false, fmt.Sprint(temperatureDegreeC))
 	token.Wait()
 }
 
 func (s ShellyTRV) SetExternalTemperature(temperatureDegreeC float32) {
-	log.Printf("%s: setting external temperature to %f °C\n", s.deviceName(), temperatureDegreeC)
+	log.Printf("%s: setting external temperature to %f °C\n", s.DeviceName(), temperatureDegreeC)
 	topic := s.baseCommandTopic() + "/ext_t"
 	token := s.mqttClient.Publish(topic, byte(qos), false, fmt.Sprint(temperatureDegreeC))
 	token.Wait()
 }
 
 func (s ShellyTRV) pokeSettings() {
-	log.Printf("%s: poking for settings\n", s.deviceName())
+	log.Printf("%s: poking for settings\n", s.DeviceName())
 
 	topic := s.baseCommandTopic() + "/settings"
 	token := s.mqttClient.Publish(topic, byte(qos), false, "")
@@ -184,7 +184,7 @@ func (s ShellyTRV) SubscribeStatus(statusCallback ShellyTRVStatusCallback) {
 	topic := s.baseTopic() + "/status"
 
 	callback := func(client MQTT.Client, message MQTT.Message) {
-		log.Printf("%s: received message: %+v\n", s.deviceName(), string(message.Payload()))
+		log.Printf("%s: received message: %+v\n", s.DeviceName(), string(message.Payload()))
 		status := ShellyTRVStatus{}
 		err := json.Unmarshal(message.Payload(), &status)
 		if err != nil {
@@ -199,7 +199,7 @@ func (s ShellyTRV) SubscribeStatus(statusCallback ShellyTRVStatusCallback) {
 		os.Exit(1)
 	}
 
-	log.Printf("%s: subscribed to %s\n", s.deviceName(), topic)
+	log.Printf("%s: subscribed to %s\n", s.DeviceName(), topic)
 }
 
 type ShellyTRVInfoCallback = func(info ShellyTRVInfo)
@@ -208,7 +208,7 @@ func (s ShellyTRV) SubscribeInfo(infoCallback ShellyTRVInfoCallback) {
 	topic := s.baseTopic() + "/info"
 
 	callback := func(client MQTT.Client, message MQTT.Message) {
-		log.Printf("%s: received message: %+v\n", s.deviceName(), string(message.Payload()))
+		log.Printf("%s: received message: %+v\n", s.DeviceName(), string(message.Payload()))
 		info := ShellyTRVInfo{}
 		err := json.Unmarshal(message.Payload(), &info)
 		if err != nil {
@@ -223,7 +223,7 @@ func (s ShellyTRV) SubscribeInfo(infoCallback ShellyTRVInfoCallback) {
 		os.Exit(1)
 	}
 
-	log.Printf("%s: subscribed to %s\n", s.deviceName(), topic)
+	log.Printf("%s: subscribed to %s\n", s.DeviceName(), topic)
 }
 
 func (s ShellyTRV) SubscribeAll() {
@@ -232,7 +232,7 @@ func (s ShellyTRV) SubscribeAll() {
 	callback := func(client MQTT.Client, message MQTT.Message) {
 		log.Printf(
 			"%s: received topic: %+v message: %+v\n",
-			s.deviceName(),
+			s.DeviceName(),
 			string(message.Topic()),
 			string(message.Payload()),
 		)
@@ -244,5 +244,5 @@ func (s ShellyTRV) SubscribeAll() {
 		os.Exit(1)
 	}
 
-	log.Printf("%s: subscribed to %s\n", s.deviceName(), topic)
+	log.Printf("%s: subscribed to %s\n", s.DeviceName(), topic)
 }
