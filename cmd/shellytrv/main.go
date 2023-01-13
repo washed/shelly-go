@@ -19,6 +19,10 @@ func infoCallback(info shelly.ShellyTRVInfo) {
 	log.Printf("Received info: %+v\n", info)
 }
 
+func statusCallback(status shelly.ShellyTRVStatus) {
+	log.Printf("Received status: %+v\n", status)
+}
+
 func main() {
 	mqttOpts := MQTT.NewClientOptions()
 	mqttOpts.AddBroker(broker)
@@ -30,6 +34,7 @@ func main() {
 	defer trv.Close()
 
 	trv.SubscribeInfo(infoCallback)
+	trv.SubscribeStatus(statusCallback)
 
 	for {
 		time.Sleep(time.Second * 10)

@@ -22,14 +22,6 @@ type ShellyTRV struct {
 	mqttOpts   *MQTT.ClientOptions
 }
 
-type ShellyTRVInfo struct {
-	Calibrated  bool                  `json:"calibrated"`
-	Charger     bool                  `json:"charger"`
-	PsMode      int                   `json:"ps_mode"`
-	DbgFlags    int                   `json:"dbg_flags"`
-	Thermostats []ShellyTRVThermostat `json:"thermostats"`
-}
-
 type ShellyTRVThermostat struct {
 	Pos             float32          `json:"pos"`
 	Schedule        bool             `json:"schedule"`
@@ -49,6 +41,21 @@ type ShellyTRVTmp struct {
 	Value   float32 `json:"value"`
 	Units   string  `json:"units"`
 	IsValid bool    `json:"is_valid"`
+}
+
+type ShellyTRVInfo struct {
+	Calibrated  bool                  `json:"calibrated"`
+	Charger     bool                  `json:"charger"`
+	PsMode      int                   `json:"ps_mode"`
+	DbgFlags    int                   `json:"dbg_flags"`
+	Thermostats []ShellyTRVThermostat `json:"thermostats"`
+}
+
+type ShellyTRVStatus struct {
+	TargetT           ShellyTRVTargetT `json:"target_t"`
+	Tmp               ShellyTRVTmp     `json:"tmp"`
+	TemperatureOffset float32          `json:"temperature_offset"`
+	Bat               int              `json:"bat"`
 }
 
 func NewShellyTRV(deviceId string, mqttOpts *MQTT.ClientOptions) ShellyTRV {
@@ -117,20 +124,28 @@ func (s ShellyTRV) pokeSettings() {
 	token.Wait()
 }
 
-func (s ShellyTRV) SubscribeStatus() {
+type ShellyTRVStatusCallback = func(status ShellyTRVStatus)
+
+func (s ShellyTRV) SubscribeStatus(statusCallback ShellyTRVStatusCallback) {
 	topic := s.baseTopic() + "/status"
 
-	if token := s.mqttClient.Subscribe(topic, byte(qos), s.statusCallback); token.Wait() &&
+	callback := func(client MQTT.Client, message MQTT.Message) {
+		log.Printf("%s: received message: %+v\n", s.deviceName(), string(message.Payload()))
+		status := ShellyTRVStatus{}
+		err := json.Unmarshal(message.Payload(), &status)
+		if err != nil {
+			log.Printf("Error unmarshaling message '%+v'! Error: '%+v'.\n", message, err)
+		}
+		statusCallback(status)
+	}
+
+	if token := s.mqttClient.Subscribe(topic, byte(qos), callback); token.Wait() &&
 		token.Error() != nil {
 		log.Println(token.Error())
 		os.Exit(1)
 	}
 
-	log.Printf("%s: subscribed to status\n", s.deviceName())
-}
-
-func (s ShellyTRV) statusCallback(client MQTT.Client, message MQTT.Message) {
-	log.Printf("%s: received message: %+v\n", s.deviceName(), message)
+	log.Printf("%s: subscribed to %s\n", s.deviceName(), topic)
 }
 
 type ShellyTRVInfoCallback = func(info ShellyTRVInfo)
@@ -139,6 +154,7 @@ func (s ShellyTRV) SubscribeInfo(infoCallback ShellyTRVInfoCallback) {
 	topic := s.baseTopic() + "/info"
 
 	callback := func(client MQTT.Client, message MQTT.Message) {
+		log.Printf("%s: received message: %+v\n", s.deviceName(), string(message.Payload()))
 		info := ShellyTRVInfo{}
 		err := json.Unmarshal(message.Payload(), &info)
 		if err != nil {
