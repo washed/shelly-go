@@ -1,11 +1,12 @@
 package main
 
 import (
-	"log"
 	"os"
 	"time"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/washed/shelly-go"
 )
 
@@ -16,14 +17,23 @@ var (
 )
 
 func infoCallback(info shelly.ShellyTRVInfo) {
-	log.Printf("Received info: %+v\n", info)
+	log.Info().
+		Interface("info", info).
+		Msg("Received ShellyTRVInfo")
 }
 
 func statusCallback(status shelly.ShellyTRVStatus) {
-	log.Printf("Received status: %+v\n", status)
+	log.Info().
+		Interface("status", status).
+		Msg("Received ShellyTRVStatus")
 }
 
 func main() {
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+	log.Logger = log.Output(
+		zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339Nano},
+	)
+
 	mqttOpts := MQTT.NewClientOptions()
 	mqttOpts.AddBroker(broker)
 	mqttOpts.SetUsername(user)
@@ -34,8 +44,8 @@ func main() {
 	defer trv.Close()
 
 	trv.SubscribeAll()
-	// trv.SubscribeInfo(infoCallback)
-	// trv.SubscribeStatus(statusCallback)
+	trv.SubscribeInfo(infoCallback)
+	trv.SubscribeStatus(statusCallback)
 
 	for {
 		time.Sleep(time.Second * 10)

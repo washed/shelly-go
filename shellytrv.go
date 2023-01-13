@@ -3,10 +3,9 @@ package shelly
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"os"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
+	"github.com/rs/zerolog/log"
 )
 
 func Btoi(b bool) int {
@@ -115,19 +114,24 @@ type ShellyTRVStatus struct {
 func NewShellyTRV(deviceId string, mqttOpts *MQTT.ClientOptions) ShellyTRV {
 	client := MQTT.NewClient(mqttOpts)
 	s := ShellyTRV{DeviceId: deviceId, mqttClient: client, mqttOpts: mqttOpts}
-	log.Printf("New ShellyTRV: %+v\n", s)
+	log.Debug().Str("DeviceName", s.DeviceName()).Msg("New ShellyTRV")
+
 	return s
 }
 
 func (s ShellyTRV) Connect() {
 	if token := s.mqttClient.Connect(); token.Wait() && token.Error() != nil {
-		panic(token.Error())
+		log.Error().
+			Str("DeviceName", s.DeviceName()).
+			Err(token.Error()).
+			Msg("Error connecting to MQTT!")
 	}
+	log.Info().Str("DeviceName", s.DeviceName()).Msg("connected")
 }
 
 func (s ShellyTRV) Close() {
 	s.mqttClient.Disconnect(disconnectQiesceTimeMs)
-	log.Printf("%s: disconnected\n", s.DeviceName())
+	log.Info().Str("DeviceName", s.DeviceName()).Msg("disconnected")
 }
 
 func (s ShellyTRV) DeviceName() string {
@@ -143,36 +147,49 @@ func (s ShellyTRV) baseCommandTopic() string {
 }
 
 func (s ShellyTRV) SetValve(valvePos float32) {
-	log.Printf("%s: setting valve_pos to %f\n", s.DeviceName(), valvePos)
+	log.Info().
+		Str("DeviceName", s.DeviceName()).
+		Float32("valvePos", valvePos).
+		Msg("setting valve_pos")
 	topic := s.baseCommandTopic() + "/valve_pos"
 	token := s.mqttClient.Publish(topic, byte(qos), false, fmt.Sprint(valvePos))
 	token.Wait()
 }
 
 func (s ShellyTRV) SetScheduleEnable(enable bool) {
-	log.Printf("%s: setting schedule enable to %d\n", s.DeviceName(), Btoi(enable))
+	log.Info().
+		Str("DeviceName", s.DeviceName()).
+		Bool("enable", enable).
+		Msg("setting schedule enable")
 	topic := s.baseCommandTopic() + "/schedule"
 	token := s.mqttClient.Publish(topic, byte(qos), false, fmt.Sprint(Btoi(enable)))
 	token.Wait()
 }
 
 func (s ShellyTRV) SetTargetTemperature(temperatureDegreeC float32) {
-	log.Printf("%s: setting target temperature to %f °C\n", s.DeviceName(), temperatureDegreeC)
+	log.Info().
+		Str("DeviceName", s.DeviceName()).
+		Float32("temperatureDegreeC", temperatureDegreeC).
+		Msg("setting target temperature")
 	topic := s.baseCommandTopic() + "/target_t"
 	token := s.mqttClient.Publish(topic, byte(qos), false, fmt.Sprint(temperatureDegreeC))
 	token.Wait()
 }
 
 func (s ShellyTRV) SetExternalTemperature(temperatureDegreeC float32) {
-	log.Printf("%s: setting external temperature to %f °C\n", s.DeviceName(), temperatureDegreeC)
+	log.Info().
+		Str("DeviceName", s.DeviceName()).
+		Float32("temperatureDegreeC", temperatureDegreeC).
+		Msg("setting external temperature")
 	topic := s.baseCommandTopic() + "/ext_t"
 	token := s.mqttClient.Publish(topic, byte(qos), false, fmt.Sprint(temperatureDegreeC))
 	token.Wait()
 }
 
 func (s ShellyTRV) pokeSettings() {
-	log.Printf("%s: poking for settings\n", s.DeviceName())
-
+	log.Info().
+		Str("DeviceName", s.DeviceName()).
+		Msg("poking forStr settings")
 	topic := s.baseCommandTopic() + "/settings"
 	token := s.mqttClient.Publish(topic, byte(qos), false, "")
 	token.Wait()
@@ -184,22 +201,40 @@ func (s ShellyTRV) SubscribeStatus(statusCallback ShellyTRVStatusCallback) {
 	topic := s.baseTopic() + "/status"
 
 	callback := func(client MQTT.Client, message MQTT.Message) {
-		log.Printf("%s: received message: %+v\n", s.DeviceName(), string(message.Payload()))
+		log.Debug().
+			Str("DeviceName", s.DeviceName()).
+			Str("message.Topic", string(message.Topic())).
+			Str("message.Payload", string(message.Payload())).
+			Msg("received message")
+
 		status := ShellyTRVStatus{}
 		err := json.Unmarshal(message.Payload(), &status)
 		if err != nil {
-			log.Printf("Error unmarshaling message '%+v'! Error: '%+v'.\n", message, err)
+			log.Error().
+				Str("DeviceName", s.DeviceName()).
+				Str("message.Topic", string(message.Topic())).
+				Str("message.Payload", string(message.Payload())).
+				Err(err).
+				Msg("Error unmarshaling message!")
+			return
 		}
 		statusCallback(status)
 	}
 
 	if token := s.mqttClient.Subscribe(topic, byte(qos), callback); token.Wait() &&
 		token.Error() != nil {
-		log.Println(token.Error())
-		os.Exit(1)
+		log.Error().
+			Str("DeviceName", s.DeviceName()).
+			Str("topic", topic).
+			Err(token.Error()).
+			Msg("Error subscribing!")
+		return
 	}
 
-	log.Printf("%s: subscribed to %s\n", s.DeviceName(), topic)
+	log.Info().
+		Str("DeviceName", s.DeviceName()).
+		Str("topic", topic).
+		Msg("Subscribed!")
 }
 
 type ShellyTRVInfoCallback = func(info ShellyTRVInfo)
@@ -208,41 +243,64 @@ func (s ShellyTRV) SubscribeInfo(infoCallback ShellyTRVInfoCallback) {
 	topic := s.baseTopic() + "/info"
 
 	callback := func(client MQTT.Client, message MQTT.Message) {
-		log.Printf("%s: received message: %+v\n", s.DeviceName(), string(message.Payload()))
+		log.Debug().
+			Str("DeviceName", s.DeviceName()).
+			Str("message.Topic", string(message.Topic())).
+			Str("message.Payload", string(message.Payload())).
+			Msg("received message")
 		info := ShellyTRVInfo{}
 		err := json.Unmarshal(message.Payload(), &info)
 		if err != nil {
-			log.Printf("Error unmarshaling message '%+v'! Error: '%+v'.\n", message, err)
+			log.Error().
+				Str("DeviceName", s.DeviceName()).
+				Str("message.Topic", string(message.Topic())).
+				Str("message.Payload", string(message.Payload())).
+				Err(err).
+				Msg("Error unmarshaling message!")
+			return
 		}
 		infoCallback(info)
 	}
 
 	if token := s.mqttClient.Subscribe(topic, byte(qos), callback); token.Wait() &&
 		token.Error() != nil {
-		log.Println(token.Error())
-		os.Exit(1)
+		log.Error().
+			Str("DeviceName", s.DeviceName()).
+			Str("topic", topic).
+			Err(token.Error()).
+			Msg("Error subscribing!")
+		return
 	}
 
-	log.Printf("%s: subscribed to %s\n", s.DeviceName(), topic)
+	log.Info().
+		Str("DeviceName", s.DeviceName()).
+		Str("topic", topic).
+		Msg("Subscribed!")
 }
 
 func (s ShellyTRV) SubscribeAll() {
 	topic := s.baseTopic() + "/#"
 
 	callback := func(client MQTT.Client, message MQTT.Message) {
-		log.Printf(
-			"%s: received topic: %+v message: %+v\n",
-			s.DeviceName(),
-			string(message.Topic()),
-			string(message.Payload()),
-		)
+		log.Debug().
+			Str("DeviceName", s.DeviceName()).
+			Str("message.Topic", string(message.Topic())).
+			Str("message.Payload", string(message.Payload())).
+			Msg("received message")
 	}
 
 	if token := s.mqttClient.Subscribe(topic, byte(qos), callback); token.Wait() &&
 		token.Error() != nil {
-		log.Println(token.Error())
-		os.Exit(1)
+		log.Error().
+			Str("DeviceName", s.DeviceName()).
+			Str("topic", topic).
+			Err(token.Error()).
+			Msg("Error subscribing!")
+		return
 	}
 
-	log.Printf("%s: subscribed to %s\n", s.DeviceName(), topic)
+	log.Info().
+		Str("DeviceName", s.DeviceName()).
+		Str("topic", topic).
+		Msg("Subscribed!")
 }
