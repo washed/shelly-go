@@ -1,7 +1,6 @@
 package shelly
 
 import (
-	"encoding/json"
 	"fmt"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
@@ -16,9 +15,7 @@ func Btoi(b bool) int {
 }
 
 type ShellyTRV struct {
-	DeviceId   string
-	mqttClient MQTT.Client
-	mqttOpts   *MQTT.ClientOptions
+	ShellyDevice
 }
 
 type ShellyTRVThermostat struct {
@@ -27,7 +24,7 @@ type ShellyTRVThermostat struct {
 	ScheduleProfile int              `json:"schedule_profile"`
 	BoostMinutes    int              `json:"boost_minutes"`
 	TargetT         ShellyTRVTargetT `json:"target_t"`
-	Tmp             ShellyTRVTmp     `json:"tmp"`
+	Tmp             ShellyInfoTmp    `json:"tmp"`
 }
 
 type ShellyTRVTargetT struct {
@@ -36,24 +33,13 @@ type ShellyTRVTargetT struct {
 	Units   string  `json:"units"`
 }
 
-type ShellyTRVTmp struct {
-	Value   float32 `json:"value"`
-	Units   string  `json:"units"`
-	IsValid bool    `json:"is_valid"`
-}
-
-type ShellyTRVBat struct {
-	Value   int     `json:"value"`
-	Voltage float32 `json:"voltage"`
-}
-
 type ShellyTRVInfo struct {
 	Calibrated  bool                  `json:"calibrated"`
 	Charger     bool                  `json:"charger"`
 	PsMode      int                   `json:"ps_mode"`
 	DbgFlags    int                   `json:"dbg_flags"`
 	Thermostats []ShellyTRVThermostat `json:"thermostats"`
-	Bat         ShellyTRVBat          `json:"bat"`
+	Bat         ShellyInfoBat         `json:"bat"`
 }
 
 /*
@@ -81,10 +67,6 @@ Implement the rest the remaining info fields if necessary?
     "actions_stats": {
         "skipped": 0
     },
-    "bat": {
-        "value": 99,
-        "voltage": 3.989
-    },
     "update": {
         "status": "unknown",
         "has_update": false,
@@ -106,14 +88,14 @@ Implement the rest the remaining info fields if necessary?
 
 type ShellyTRVStatus struct {
 	TargetT           ShellyTRVTargetT `json:"target_t"`
-	Tmp               ShellyTRVTmp     `json:"tmp"`
+	Tmp               ShellyInfoTmp    `json:"tmp"`
 	TemperatureOffset float32          `json:"temperature_offset"`
 	Bat               float32          `json:"bat"`
 }
 
 func NewShellyTRV(deviceId string, mqttOpts *MQTT.ClientOptions) ShellyTRV {
 	client := MQTT.NewClient(mqttOpts)
-	s := ShellyTRV{DeviceId: deviceId, mqttClient: client, mqttOpts: mqttOpts}
+	s := ShellyTRV{ShellyDevice{DeviceId: deviceId, mqttClient: client, mqttOpts: mqttOpts}}
 	log.Debug().Str("DeviceName", s.DeviceName()).Msg("New ShellyTRV")
 
 	return s
@@ -199,83 +181,14 @@ type ShellyTRVStatusCallback = func(status ShellyTRVStatus)
 
 func (s ShellyTRV) SubscribeStatus(statusCallback ShellyTRVStatusCallback) {
 	topic := s.baseTopic() + "/status"
-
-	callback := func(client MQTT.Client, message MQTT.Message) {
-		log.Debug().
-			Str("DeviceName", s.DeviceName()).
-			Str("message.Topic", string(message.Topic())).
-			Str("message.Payload", string(message.Payload())).
-			Msg("received message")
-
-		status := ShellyTRVStatus{}
-		err := json.Unmarshal(message.Payload(), &status)
-		if err != nil {
-			log.Error().
-				Str("DeviceName", s.DeviceName()).
-				Str("message.Topic", string(message.Topic())).
-				Str("message.Payload", string(message.Payload())).
-				Err(err).
-				Msg("Error unmarshaling message!")
-			return
-		}
-		statusCallback(status)
-	}
-
-	if token := s.mqttClient.Subscribe(topic, byte(qos), callback); token.Wait() &&
-		token.Error() != nil {
-		log.Error().
-			Str("DeviceName", s.DeviceName()).
-			Str("topic", topic).
-			Err(token.Error()).
-			Msg("Error subscribing!")
-		return
-	}
-
-	log.Info().
-		Str("DeviceName", s.DeviceName()).
-		Str("topic", topic).
-		Msg("Subscribed!")
+	SubscribeJSONHelper(s.mqttClient, topic, statusCallback)
 }
 
 type ShellyTRVInfoCallback = func(info ShellyTRVInfo)
 
 func (s ShellyTRV) SubscribeInfo(infoCallback ShellyTRVInfoCallback) {
 	topic := s.baseTopic() + "/info"
-
-	callback := func(client MQTT.Client, message MQTT.Message) {
-		log.Debug().
-			Str("DeviceName", s.DeviceName()).
-			Str("message.Topic", string(message.Topic())).
-			Str("message.Payload", string(message.Payload())).
-			Msg("received message")
-		info := ShellyTRVInfo{}
-		err := json.Unmarshal(message.Payload(), &info)
-		if err != nil {
-			log.Error().
-				Str("DeviceName", s.DeviceName()).
-				Str("message.Topic", string(message.Topic())).
-				Str("message.Payload", string(message.Payload())).
-				Err(err).
-				Msg("Error unmarshaling message!")
-			return
-		}
-		infoCallback(info)
-	}
-
-	if token := s.mqttClient.Subscribe(topic, byte(qos), callback); token.Wait() &&
-		token.Error() != nil {
-		log.Error().
-			Str("DeviceName", s.DeviceName()).
-			Str("topic", topic).
-			Err(token.Error()).
-			Msg("Error subscribing!")
-		return
-	}
-
-	log.Info().
-		Str("DeviceName", s.DeviceName()).
-		Str("topic", topic).
-		Msg("Subscribed!")
+	SubscribeJSONHelper(s.mqttClient, topic, infoCallback)
 }
 
 func (s ShellyTRV) SubscribeAll() {
