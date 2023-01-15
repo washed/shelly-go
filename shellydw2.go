@@ -16,6 +16,11 @@ type ShellyDW2Sensor struct {
 	IsValid bool   `json:"is_valid"`
 }
 
+func (s ShellyDW2Sensor) IsOpen() bool {
+	return s.State == "open"
+	// Error handle other states?
+}
+
 type ShellyDW2Accel struct {
 	Tilt      int `json:"tilt"`
 	Vibration int `json:"vibration"`
