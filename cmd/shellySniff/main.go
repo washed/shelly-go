@@ -40,7 +40,7 @@ func main() {
 	defer mqttClient.Disconnect(250)
 
 	topic := "shellies/#"
-	filter := "shellydw2"
+	filter := "shellybutton"
 
 	callback := func(client MQTT.Client, message MQTT.Message) {
 		if strings.Contains(message.Topic(), filter) {

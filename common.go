@@ -31,7 +31,7 @@ func logMessage(message MQTT.Message) {
 		Msg("received message")
 }
 
-func checkedJSONUnmarshal[T ShellyDW2Info | ShellyTRVInfo | ShellyTRVStatus](
+func checkedJSONUnmarshal[T ShellyDW2Info | ShellyTRVInfo | ShellyTRVStatus | ShellyButton1InputEvent](
 	message MQTT.Message,
 	out *T,
 ) error {
@@ -69,7 +69,7 @@ func checkedSubscribe(
 	return nil
 }
 
-func SubscribeJSONHelper[T ShellyTRVInfo | ShellyTRVStatus | ShellyDW2Info](
+func SubscribeJSONHelper[T ShellyTRVInfo | ShellyTRVStatus | ShellyDW2Info | ShellyButton1InputEvent](
 	mqttClient MQTT.Client,
 	topic string,
 	callback func(T),
